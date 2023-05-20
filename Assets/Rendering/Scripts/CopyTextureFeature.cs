@@ -1,3 +1,5 @@
+using UnityEngine.Rendering;
+
 namespace Afterimage
 {
     using UnityEngine;
@@ -10,6 +12,7 @@ namespace Afterimage
     {
         [SerializeField] private Settings settings = new Settings();
         private CopyTexturePass _copyTexturePass;
+        private RTHandle _cameraTextureHandle;
 
         public enum CopyMode
         {
@@ -31,13 +34,31 @@ namespace Afterimage
             {
                 renderPassEvent = settings.renderPassEvent
             };
+
+            if (_cameraTextureHandle == null)
+            {
+                _cameraTextureHandle = RTHandles.Alloc(ShaderPropertyId.CameraTexture);
+            }
         }
 
         /// <inheritdoc/>
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            
+            if (_cameraTextureHandle != null)
+            {
+                _cameraTextureHandle.Release();
+                _cameraTextureHandle = null;
+            }
+        }
+        
+        /// <inheritdoc/>
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            _copyTexturePass.Setup(settings.copyMode);
+            _copyTexturePass.Setup(settings.copyMode, _cameraTextureHandle);
             renderer.EnqueuePass(_copyTexturePass);
         }
+
     }
 }

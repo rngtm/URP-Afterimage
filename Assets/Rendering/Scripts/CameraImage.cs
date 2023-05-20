@@ -3,11 +3,6 @@ namespace Afterimage
     using UnityEngine;
     using UnityEngine.Experimental.Rendering;
 
-    public static class RenderConfig
-    {
-        public static RenderTexture CameraTexture { get; set; }
-    }
-
     public class CameraImage : MonoBehaviour
     {
         private RenderTexture _renderTexture; // カメラ内容を表示したいRenderTexture

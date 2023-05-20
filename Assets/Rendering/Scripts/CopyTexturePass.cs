@@ -11,11 +11,28 @@ namespace Afterimage
     public class CopyTexturePass : ScriptableRenderPass
     {
         private CopyTextureFeature.CopyMode _copyMode;
+        private RTHandle _cameraTextureHandle;
 
-        public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
+        public void Setup(CopyTextureFeature.CopyMode copyMode, RTHandle cameraTextureHandle)
+        {
+            _copyMode = copyMode;
+            _cameraTextureHandle = cameraTextureHandle;
+        }
+
+        public override void Configure(
+            CommandBuffer cmd,
+            RenderTextureDescriptor cameraTextureDescriptor)
         {
             base.Configure(cmd, cameraTextureDescriptor);
             ConfigureClear(ClearFlag.None, Color.clear);
+            ConfigureInput(ScriptableRenderPassInput.Color);
+            cmd.GetTemporaryRT(ShaderPropertyId.CameraTexture, cameraTextureDescriptor);
+        }
+
+        public override void OnCameraCleanup(CommandBuffer cmd)
+        {
+            base.OnCameraCleanup(cmd);
+            cmd.ReleaseTemporaryRT(ShaderPropertyId.CameraTexture);
         }
 
         // Here you can implement the rendering logic.
@@ -49,10 +66,28 @@ namespace Afterimage
             switch (_copyMode)
             {
                 case CopyTextureFeature.CopyMode.CameraToTexture:
-                    cmd.Blit(cameraColorTargetHandle, RenderConfig.CameraTexture);
+                    cmd.SetRenderTarget(ShaderPropertyId.BlitTexture);
+                    cmd.SetGlobalTexture(ShaderPropertyId.BlitTexture, RenderConfig.CameraTexture);
+                    Blitter.BlitTexture(
+                        cmd,
+                        cameraColorTargetHandle,
+                        _cameraTextureHandle,
+                        RenderBufferLoadAction.Load,
+                        RenderBufferStoreAction.Store,
+                        Blitter.GetBlitMaterial(TextureDimension.Tex2D),
+                        0);
+                    // cmd.Blit(cameraColorTargetHandle, RenderConfig.CameraTexture);
                     break;
                 case CopyTextureFeature.CopyMode.TextureToCamera:
-                    cmd.Blit(RenderConfig.CameraTexture, cameraColorTargetHandle);
+                    cmd.SetGlobalTexture(ShaderPropertyId.BlitTexture, RenderConfig.CameraTexture);
+                    Blitter.BlitTexture(
+                        cmd,
+                        _cameraTextureHandle.nameID,
+                        cameraColorTargetHandle.nameID,
+                        RenderBufferLoadAction.Load,
+                        RenderBufferStoreAction.Store,
+                        Blitter.GetBlitMaterial(TextureDimension.Tex2D),
+                        0);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -60,11 +95,6 @@ namespace Afterimage
 
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
-        }
-
-        public void Setup(CopyTextureFeature.CopyMode copyMode)
-        {
-            _copyMode = copyMode;
         }
     }
 }
